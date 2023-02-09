@@ -14,3 +14,6 @@ lean_exe «lean-gym» {
   root := `Main
   supportInterpreter := true
 }
+
+require mathlib from git
+  "https://github.com/leanprover-community/mathlib4.git"@"master"
