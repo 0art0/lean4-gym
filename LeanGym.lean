@@ -54,7 +54,7 @@ abbrev GymM := ReaderT Context (StateRefT State TermElabM)
 structure Problem where
   decl          : Name
   -- TODO: parse these from command-line
-  imports       : List Import   := [{ module := `Init : Import }]
+  imports       : List Import   := [`Init, `Mathlib, `Std] |>.map ({module := ·})
   openDecls     : List OpenDecl := []
   currNamespace : Name          := Name.anonymous
 
