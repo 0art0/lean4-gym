@@ -30,6 +30,7 @@ Example (circular) run of `lean-gym Nat.add_comm`:
 -/
 import Lean
 import Std.Data.HashMap
+import Aesop
 
 open Lean Lean.Meta Lean.Elab Lean.Elab.Tactic
 open Std (HashMap)
@@ -44,7 +45,7 @@ abbrev BranchId : Type := Nat
 structure Context where
 
 structure State where
-  branches : HashMap BranchId Tactic.SavedState := {}
+  branches : Std.HashMap BranchId Tactic.SavedState := {}
   nextId   : BranchId := 0
 
 abbrev GymM := ReaderT Context (StateRefT State TermElabM)
