@@ -3,6 +3,8 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Daniel Selsam
 
+# Lean4 Gym
+
 An extremely bare-bones REPL for proving in Lean4.
 
 Usage: `lean-gym <declName>` will load `Init` and start a proving environment for `declName`
@@ -36,36 +38,74 @@ import Aesop
 open Lean Lean.Meta Lean.Elab Lean.Elab.Tactic
 open Std (HashMap)
 
+def Lean.Message.isError (msg : Lean.Message) : Bool :=
+  match msg.severity with
+    | .error => true
+    | _ => false
+
 def Lean.MessageLog.getErrorMessages (log : MessageLog) : MessageLog :=
-  { msgs := log.msgs.filter fun m => match m.severity with | MessageSeverity.error => true | _ => false }
+  { msgs := log.msgs.filter (·.isError) }
+
 
 namespace Gym
 
+/-!
+
+## The proof search interface
+
+Lean gym can be initialised with any declaration from the environment.
+
+Tactics are supplied via the `runTactic` command, which also specifies the 
+goal on which the tactic is to be applied.
+
+The tactic states are all stored in a tree structure, indexed by unique identifiers.
+
+-/
+
+/-- The identifiers for the branches of the proof search tree. -/
 abbrev BranchId : Type := Nat
 
+/-- The proof search context (currently just an empty structure). -/
 structure Context where
 
+/-- The proof search state. -/
 structure State where
+  /-- A `HashMap` of tactic states, indexed by `BranchId`s. -/
   branches : Std.HashMap BranchId Tactic.SavedState := {}
+  /-- The information about the next `BranchId`. -/
   nextId   : BranchId := 0
 
+/-- The `Gym` monad, which keeps track of the tactic states, branches, and related information. -/
 abbrev GymM := ReaderT Context (StateRefT State TermElabM)
 
+/-- A structure encapsulating important details of the theorem to be proved, 
+  including the relevant imports and namespaces to use. -/
 structure Problem where
+  /-- The name of the declaration in the environment. -/
   decl          : Name
   -- TODO: parse these from command-line
+  /-- The list of imports. -/
   imports       : List Import   := [`Init, `Mathlib, `Std] |>.map ({module := ·})
+  /-- The list of namespaces to open. -/
   openDecls     : List OpenDecl := []
+  /-- The current namespace of the declaration. -/
   currNamespace : Name          := Name.anonymous
 
-inductive Command : Type
+/-- The commands which can be performed to modify the proof tree in a Lean gym session. -/
+inductive Command
+  /-- Apply the given tactic (encoded as a string) on the specified branch of the proof tree. -/
   | runTactic : BranchId → String → Command
+  /-- Discard the specified branch from the proof tree. -/
   | discard   : BranchId → Command
   deriving FromJson
 
-structure Response : Type where
-  branchId : Option Nat   := none
+/-- The response of the gym on running a `Command`. -/
+structure Response where
+  /-- The `BranchId` of the updated goal which is in current focus (if one exists). -/
+  branchId : Option BranchId := none
+  /-- The goals generated after running the `Command`. -/
   goals    : Array String := #[]
+  /-- The errors generated after running the `Command`. -/
   errors   : Array String := #[]
   deriving ToJson
 
