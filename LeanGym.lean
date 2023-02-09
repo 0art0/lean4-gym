@@ -109,18 +109,17 @@ structure Response where
   errors   : Array String := #[]
   deriving ToJson
 
+/-- The `REPL` back-end of Lean Gym.  -/
 partial def replFor (problem : Problem) : IO Unit := do
   let termElabM : TermElabM Unit := do
-    match (← getEnv).find? problem.decl with
-    | none       => throwError "decl {problem.decl} not found"
-    | some cInfo =>
-      if ¬ (← isProp cInfo.type) then throwError "decl {problem.decl} not a theorem"
-      let mvar ← mkFreshExprMVar (some cInfo.type) (kind := MetavarKind.synthetic)
-      let termState : Term.SavedState ← Term.saveState
-      let tacticState : Tactic.SavedState := { term := termState, tactic := { goals := [mvar.mvarId!] }}
-      let context := {}
-      let state := { branches := HashMap.empty.insert 0 tacticState, nextId := 1 }
-      (welcome *> repl).run context |>.run' state
+    let some cInfo := (← getEnv).find? problem.decl | throwError "decl {problem.decl} not found"
+    if ¬ (← isProp cInfo.type) then throwError "decl {problem.decl} not a theorem"
+    let mvar ← mkFreshExprMVar (some cInfo.type) (kind := MetavarKind.synthetic)
+    let termState : Term.SavedState ← Term.saveState
+    let tacticState : Tactic.SavedState := { term := termState, tactic := { goals := [mvar.mvarId!] }}
+    let context := {}
+    let state := { branches := HashMap.empty.insert 0 tacticState, nextId := 1 }
+    (welcome *> repl).run context |>.run' state
 
   let termElabCtx : Term.Context := {
     declName? := some (problem.decl ++ "_gym_"),
@@ -142,20 +141,25 @@ partial def replFor (problem : Problem) : IO Unit := do
   pure ()
 
 where
+  /-- The welcome message for the Lean Gym REPL. -/
   welcome : GymM Unit := do
     println! "{toJson (← responseForBranch 0)}"
 
+  /-- Retrieve the details of a given `BranchId` as a `Response`. -/
   responseForBranch (id : BranchId) : GymM Response := do
     let some savedState ← pure ((← get).branches.find? id) | throwError "invalid branch id: {id}"
     let goals ← savedState.tactic.goals.mapM fun g => do pure $ toString (← Meta.ppGoal g)
     pure { branchId := id, goals := goals.toArray }
 
+  /-- The main REPL loop of Lean gym. -/
   repl : GymM Unit := do
     IO.print "> "
     let response ← processCmd (← (← IO.getStdin).getLine)
     println! "{toJson response}"
     repl
 
+  /-- Interpret the given string as a `Command` and execute it. -/
+  -- TODO: Use better parsing here
   processCmd (cmd : String) : GymM Response := do
     match Json.parse cmd with
     | Except.error err => pure { errors := #[s!"failed to parse json: {err}"] }
@@ -165,10 +169,12 @@ where
       | Except.ok (Command.discard id)          => discard id
       | Except.error err                        => pure { errors := #[s!"failed to decode json: {err}"] }
 
+  /-- Abandon the specified branch of the search tree. -/
   discard (id : BranchId) : GymM Response := do
     modify fun s => { s with branches := s.branches.erase id }
     pure {}
 
+  /-- Attempt to run the given tactic on the given branch of the proof search tree. -/
   runTactic (id : BranchId) (tacticString : String) : GymM Response := do
     let some savedState ←  pure ((← get).branches.find? id) | throwError "unknown 'id': {id}"
     match Parser.runParserCategory (← getEnv) `tactic tacticString "<stdin>" with
@@ -178,6 +184,7 @@ where
       let tac : TacticM Unit := set savedState.tactic *> evalTactic stx
       let mvarId : MVarId := savedState.tactic.goals.head!
       try
+        -- the main step where the tactic is executed
         let unsolvedGoals ← Tactic.run mvarId tac
         if (← getThe Core.State).messages.hasErrors then
           let messages := (← getThe Core.State).messages.getErrorMessages.toList.toArray
