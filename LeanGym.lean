@@ -105,12 +105,6 @@ where
   welcome : GymM Unit := do
     println! "{toJson (← responseForBranch 0)}"
 
-/-   ppTacticState (s : Tactic.SavedState) : GymM Format := do
-    let mut result : Format := Format.nil
-    for goal in s.tactic.goals do
-      result := result ++ "\n-----\n" ++ (← Meta.ppGoal goal)
-    return result -/
-
   responseForBranch (id : BranchId) : GymM Response := do
     let some savedState ← pure ((← get).branches.find? id) | throwError "invalid branch id: {id}"
     let goals ← savedState.tactic.goals.mapM fun g => do pure $ toString (← Meta.ppGoal g)
@@ -155,10 +149,5 @@ where
           responseForBranch nextId
       catch ex =>
         pure { errors := #[← ex.toMessageData.toString] }
-
- /-  parseNat (s : String) : GymM Nat :=
-    match s.toNat? with
-    | some k => pure k
-    | none   => throwError "String '{s}' cannot be converted to Nat" -/
 
 end Gym
