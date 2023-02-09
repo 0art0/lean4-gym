@@ -1,4 +1,4 @@
-FROM gitpod/workspace-full
+FROM ubuntu:jammy
 
 USER root
 
