@@ -162,6 +162,3 @@ where
     | none   => throwError "String '{s}' cannot be converted to Nat" -/
 
 end Gym
-
-def parseName (n : String) : Lean.Name :=
-  (n.splitOn ".").foldl Lean.Name.mkStr Lean.Name.anonymous
