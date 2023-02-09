@@ -85,7 +85,7 @@ structure Problem where
   decl          : Name
   -- TODO: parse these from command-line
   /-- The list of imports. -/
-  imports       : List Import   := [`Init, `Mathlib, `Std] |>.map ({module := ·})
+  imports       : List Import   := [`Init, `Mathlib, `Std, `Aesop] |>.map ({module := ·})
   /-- The list of namespaces to open. -/
   openDecls     : List OpenDecl := []
   /-- The current namespace of the declaration. -/
