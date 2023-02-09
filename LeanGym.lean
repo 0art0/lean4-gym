@@ -30,6 +30,7 @@ Example (circular) run of `lean-gym Nat.add_comm`:
 -/
 import Lean
 import Std.Data.HashMap
+import Mathlib
 import Aesop
 
 open Lean Lean.Meta Lean.Elab Lean.Elab.Tactic
