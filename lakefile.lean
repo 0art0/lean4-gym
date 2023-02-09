@@ -9,7 +9,7 @@ lean_lib LeanGym {
   -- add library configuration options here
 }
 
-@[defaultTarget]
+@[default_target]
 lean_exe «lean-gym» {
   root := `Main
   supportInterpreter := true
