@@ -64,6 +64,7 @@ abbrev BranchId : Type := Nat
 /-- The proof search context (currently just an empty structure). -/
 structure Context where
 
+-- TODO: Keep track of tactic state ids in addition to branch ids
 /-- The proof search state. -/
 structure State where
   /-- A `HashMap` of tactic states, indexed by `BranchId`s. -/
