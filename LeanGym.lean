@@ -106,6 +106,20 @@ structure Response where
   errors   : Array String := #[]
   deriving ToJson
 
+def GymM.ofExceptResponse [ToString α] : Except α Response → GymM Response
+| .ok r => return r
+| .error e => return { errors := #[toString e] }
+
+section Parsing
+
+declare_syntax_cat gym_command
+syntax num ":" tactic : gym_command
+syntax "discard" num : gym_command
+
+#check Term
+
+end Parsing
+
 /-- The `REPL` back-end of Lean Gym.  -/
 partial def replFor (problem : Problem) : IO Unit := do
   let termElabM : TermElabM Unit := do
@@ -156,15 +170,15 @@ where
     repl
 
   /-- Interpret the given string as a `Command` and execute it. -/
-  -- TODO: Use better parsing here
   processCmd (cmd : String) : GymM Response := do
-    match Json.parse cmd with
-    | Except.error err => pure { errors := #[s!"failed to parse json: {err}"] }
-    | Except.ok cmd    =>
-      match (fromJson? cmd : Except String Command) with
-      | Except.ok (Command.runTactic id tactic) => runTactic id tactic
-      | Except.ok (Command.discard id)          => discard id
-      | Except.error err                        => pure { errors := #[s!"failed to decode json: {err}"] }
+    let stx? := Parser.runParserCategory (← getEnv) `gym_command cmd "<stdin>"
+    match stx? with
+      | .error e => { errors := "Failed to parse {cmd}."}
+      | .ok stx =>
+        match stx with
+         | `(gym_command| $id:num:$tac:tactic) => runTac id.getNat tac
+         | `(gym_command| discard $id:num) => discard id.getNat
+         |  _ => { errors := s!"Failed to parse {toString stx}"}
 
   /-- Abandon the specified branch of the search tree. -/
   discard (id : BranchId) : GymM Response := do
@@ -172,26 +186,23 @@ where
     pure {}
 
   /-- Attempt to run the given tactic on the given branch of the proof search tree. -/
-  runTactic (id : BranchId) (tacticString : String) : GymM Response := do
+  runTac (id : BranchId) (tactic : TSyntax `tactic) : GymM Response := do
     let some savedState ←  pure ((← get).branches.find? id) | throwError "unknown 'id': {id}"
-    match Parser.runParserCategory (← getEnv) `tactic tacticString "<stdin>" with
-    | Except.error err => pure { errors := #[err] }
-    | Except.ok stx    => do
-      savedState.term.restore
-      let tac : TacticM Unit := set savedState.tactic *> evalTactic stx
-      let mvarId : MVarId := savedState.tactic.goals.head!
-      try
-        -- the main step where the tactic is executed
-        let unsolvedGoals ← Tactic.run mvarId tac
-        if (← getThe Core.State).messages.hasErrors then
-          let messages := (← getThe Core.State).messages.getErrorMessages.toList.toArray
-          pure { errors := ← (messages.map Message.data).mapM fun md => md.toString }
-        else
-          let nextId := (← get).nextId
-          let savedState : Tactic.SavedState := { term := (← Term.saveState), tactic := { goals := unsolvedGoals}}
-          modify fun s => { s with branches := s.branches.insert nextId savedState, nextId := nextId + 1 }
-          responseForBranch nextId
-      catch ex =>
-        pure { errors := #[← ex.toMessageData.toString] }
+    savedState.term.restore
+    let tac : TacticM Unit := set savedState.tactic *> evalTactic tactic
+    let mvarId : MVarId := savedState.tactic.goals.head!
+    try
+      -- the main step where the tactic is executed
+      let unsolvedGoals ← Tactic.run mvarId tac
+      if (← getThe Core.State).messages.hasErrors then
+        let messages := (← getThe Core.State).messages.getErrorMessages.toList.toArray
+        pure { errors := ← (messages.map Message.data).mapM fun md => md.toString }
+      else
+        let nextId := (← get).nextId
+        let savedState : Tactic.SavedState := { term := (← Term.saveState), tactic := { goals := unsolvedGoals}}
+        modify fun s => { s with branches := s.branches.insert nextId savedState, nextId := nextId + 1 }
+        responseForBranch nextId
+    catch ex =>
+      pure { errors := #[← ex.toMessageData.toString] }
 
 end Gym
