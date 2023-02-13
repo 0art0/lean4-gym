@@ -31,12 +31,8 @@ Example (circular) run of `lean-gym Nat.add_comm`:
 {"goals": [], "errors": [], "branchId": 2}
 -/
 import Lean
-import Std.Data.HashMap
-import Mathlib
-import Aesop
 
 open Lean Lean.Meta Lean.Elab Lean.Elab.Tactic
-open Std (HashMap)
 
 def Lean.Message.isError (msg : Lean.Message) : Bool :=
   match msg.severity with
@@ -71,7 +67,7 @@ structure Context where
 /-- The proof search state. -/
 structure State where
   /-- A `HashMap` of tactic states, indexed by `BranchId`s. -/
-  branches : Std.HashMap BranchId Tactic.SavedState := {}
+  branches : HashMap BranchId Tactic.SavedState := {}
   /-- The information about the next `BranchId`. -/
   nextId   : BranchId := 0
 
@@ -85,7 +81,7 @@ structure Problem where
   decl          : Name
   -- TODO: parse these from command-line
   /-- The list of imports. -/
-  imports       : List Import   := [`Init, `Mathlib, `Std, `Aesop] |>.map ({module := ·})
+  imports       : List Import   := [`Init, `Aesop] |>.map ({module := ·})
   /-- The list of namespaces to open. -/
   openDecls     : List OpenDecl := []
   /-- The current namespace of the declaration. -/
