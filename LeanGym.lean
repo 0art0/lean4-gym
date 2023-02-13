@@ -114,7 +114,7 @@ section Parsing
 
 declare_syntax_cat gym_command
 syntax num ":" tactic : gym_command
-syntax "discard" num : gym_command
+syntax "discardId" num : gym_command
 
 #check Term
 
@@ -173,12 +173,12 @@ where
   processCmd (cmd : String) : GymM Response := do
     let stx? := Parser.runParserCategory (← getEnv) `gym_command cmd "<stdin>"
     match stx? with
-      | .error e => { errors := "Failed to parse {cmd}."}
+      | .error e => pure { errors := #[e, s!"Failed to parse {cmd}."]}
       | .ok stx =>
         match stx with
          | `(gym_command| $id:num:$tac:tactic) => runTac id.getNat tac
-         | `(gym_command| discard $id:num) => discard id.getNat
-         |  _ => { errors := s!"Failed to parse {toString stx}"}
+         | `(gym_command| discardId $id:num) => discard id.getNat
+         |  _ => pure { errors := #[s!"Failed to parse {toString stx}"]}
 
   /-- Abandon the specified branch of the search tree. -/
   discard (id : BranchId) : GymM Response := do
