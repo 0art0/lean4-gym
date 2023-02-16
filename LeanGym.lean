@@ -82,7 +82,7 @@ structure Problem where
   decl          : Name
   -- TODO: parse these from command-line
   /-- The list of imports. -/
-  imports       : List Import   := [`Init, `Aesop] |>.map ({module := ·})
+  imports       : List Import   := [`Init, `Mathlib, `Std, `Aesop] |>.map ({module := ·})
   /-- The list of namespaces to open. -/
   openDecls     : List OpenDecl := []
   /-- The current namespace of the declaration. -/
@@ -113,10 +113,13 @@ def GymM.ofExceptResponse [ToString α] : Except α Response → GymM Response
 section Parsing
 
 declare_syntax_cat gym_command
+syntax tactic : gym_command
 syntax num ":" tactic : gym_command
 syntax "discardId" num : gym_command
 
-#check Term
+#eval do
+  let Except.ok stx := Parser.runParserCategory (← getEnv) `gym_command "intro n m" | failure
+  (return stx : TermElabM _)
 
 end Parsing
 
@@ -171,11 +174,12 @@ where
 
   /-- Interpret the given string as a `Command` and execute it. -/
   processCmd (cmd : String) : GymM Response := do
-    let stx? := Parser.runParserCategory (← getEnv) `gym_command cmd "<stdin>"
+    let stx? := Parser.runParserCategory (← getEnv (m := TermElabM)) `gym_command cmd
     match stx? with
       | .error e => pure { errors := #[e, s!"Failed to parse {cmd}."]}
       | .ok stx =>
         match stx with
+         | `(gym_command| $tac:tactic) => runTac (← get).nextId tac
          | `(gym_command| $id:num:$tac:tactic) => runTac id.getNat tac
          | `(gym_command| discardId $id:num) => discard id.getNat
          |  _ => pure { errors := #[s!"Failed to parse {toString stx}"]}
