@@ -30,7 +30,7 @@ Example (circular) run of `lean-gym Nat.add_comm`:
 > {"runTactic": [1, "rw [Nat.add_comm]"]}
 {"goals": [], "errors": [], "branchId": 2}
 -/
-import LeanGym.Parsing
+import Lean
 
 open Lean Lean.Meta Lean.Elab Lean.Elab.Tactic
 
@@ -95,7 +95,7 @@ inductive Command
   | runTactic : BranchId → String → Command
   /-- Discard the specified branch from the proof tree. -/
   | discard   : BranchId → Command
-  deriving FromJson
+  deriving Inhabited
 
 /-- The response of the gym on running a `Command`. -/
 structure Response where
@@ -160,18 +160,22 @@ where
     println! "{toJson response}"
     repl
 
-  /-- Interpret the given string as a `Command` and execute it. -/
+  /-- Process and execute a `Command` encoded as a string. -/
   processCmd (cmd : String) : GymM Response := do
-    let stx? := 
-      Parser.runParserCategory (← importModules problem.imports {} 0) `gym_command cmd
-    match stx? with
-      | .error e => pure { errors := #[e, s!"Failed to parse {cmd}."]}
-      | .ok stx =>
-        match stx with
-         | `(gym_command| $tac:tactic) => runTac (← get).nextId tac
-         | `(gym_command| $id:num:$tac:tactic) => runTac id.getNat tac
-         | `(gym_command| discardId $id:num) => discard id.getNat
-         |  _ => pure { errors := #[s!"Invalid syntax {toString stx}"]}
+    match ← parseCommand cmd with
+    | .runTactic id tac =>
+      match Parser.runParserCategory (← getEnv) `tactic tac "<stdin>" with
+      | .ok stx => runTac id ⟨stx⟩
+      | .error err => pure { errors := #[err] }
+    | .discard id => discard id
+
+  /-- Interpret the given string as a `Command`. -/
+  parseCommand (cmd : String) : GymM Command :=
+    match (cmd.dropRight 1).splitOn "(@)" with
+    | [tac] => do return .runTactic (← get).nextId tac
+    | ["discard", id] => pure <| .discard id.toNat!
+    | [tac, id] => pure <| .runTactic id.toNat! tac
+    | _ => panic! "Invalid format. Must be either `<tactic>`, `<tactic>(@)<id>` or `discard(@)<id>`."
 
   /-- Abandon the specified branch of the search tree. -/
   discard (id : BranchId) : GymM Response := do
