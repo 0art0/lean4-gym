@@ -89,6 +89,14 @@ structure Problem where
   /-- The current namespace of the declaration. -/
   currNamespace : Name          := Name.anonymous
 
+/-- The commands which can be performed to modify the proof tree in a Lean gym session. -/
+inductive Command
+  /-- Apply the given tactic (encoded as a string) on the specified branch of the proof tree. -/
+  | runTactic : BranchId → String → Command
+  /-- Discard the specified branch from the proof tree. -/
+  | discard   : BranchId → Command
+  deriving FromJson
+
 /-- The response of the gym on running a `Command`. -/
 structure Response where
   /-- The `BranchId` of the updated goal which is in current focus (if one exists). -/
