@@ -11,7 +11,7 @@ lean_lib LeanGym {
 
 @[default_target]
 lean_exe «lean-gym» {
-  root := `Main
+  root := `LeanGym
   supportInterpreter := true
 }
 
