@@ -1,7 +1,5 @@
 # Lean4 gym
 
-[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/0art0/lean4-gym)
-
 An extremely bare-bones REPL for proving in Lean4. Compile as usual with `lake build`. This will produce a `lean-gym` executable in a `build/bin` folder.
 
 Usage: `lean-gym <declName>` will load `Init` and start a proving environment for `declName`
