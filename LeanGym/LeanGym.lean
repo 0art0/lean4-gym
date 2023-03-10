@@ -131,7 +131,7 @@ partial def replFor (problem : Problem) : IO Unit := do
   let metaM : MetaM Unit := termElabM.run' (ctx := termElabCtx)
   let coreM : CoreM Unit := metaM.run'
 
-  let env ← importModules ({ module := `LeanGym.Parsing } :: problem.imports) {} 0
+  let env ← importModules problem.imports {} 0
   let coreCtx   : Core.Context := { 
     currNamespace := problem.currNamespace, 
     openDecls := problem.openDecls,
@@ -172,7 +172,7 @@ where
   /-- Interpret the given string as a `Command`. -/
   parseCommand (cmd : String) : GymM Command :=
     match (cmd.dropRight 1).splitOn "(@)" with
-    | [tac] => do return .runTactic (← get).nextId tac
+    | [tac] => do return .runTactic (← get).nextId.pred tac
     | ["discard", id] => pure <| .discard id.toNat!
     | [tac, id] => pure <| .runTactic id.toNat! tac
     | _ => panic! "Invalid format. Must be either `<tactic>`, `<tactic>(@)<id>` or `discard(@)<id>`."
